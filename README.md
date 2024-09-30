@@ -23,7 +23,7 @@ We create a new folder **Services**
 
 We create new C# class file called **S3_Service.cs**
 
-We input this code in the **S3_Service.cs** file:
+We define the **S3_Service.cs** with the following code:
 
 ```csharp
 ﻿using Amazon.S3;
