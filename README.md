@@ -563,6 +563,8 @@ Download file
 
 Delete file
 
+![image](https://github.com/user-attachments/assets/2b5af686-da76-46d4-a8bf-5f159128037a)
+
 This is the component whole code:
 
 ```razor
@@ -907,8 +909,3 @@ else
     }
 }
 ```
-
-See this component features:
-
-![image](https://github.com/user-attachments/assets/2b5af686-da76-46d4-a8bf-5f159128037a)
-
