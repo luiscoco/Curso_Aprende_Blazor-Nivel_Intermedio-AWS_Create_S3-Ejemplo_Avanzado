@@ -413,4 +413,370 @@ We run the application and we navigate to this component to see all the S3 bucke
 
 ![image](https://github.com/user-attachments/assets/cbfb5014-d731-4fdb-90dc-0d044d9ad8a0)
 
+## 7. Create a component for managing S3 buckets and files from Blazor Web App
+
+This component include some features:
+
+List S3 buckets in AWS Account
+
+Delete S3 bucket
+
+List files inside S3 bucket
+
+Upload file to S3 bucket
+
+View file
+
+Download file
+
+Delete file
+
+This is the component whole code:
+
+```razor
+@page "/ListS3AndFilesBuckets"
+
+@using BlazorAWSSample.Services
+@using Amazon.S3.Model
+@using Amazon.S3
+@using Microsoft.JSInterop
+@using Microsoft.AspNetCore.Components.Forms
+
+@inject S3Service s3Service
+@inject IJSRuntime jsRuntime
+
+<h3>S3 Buckets List</h3>
+
+<p>@statusMessage</p> <!-- Este párrafo mostrará los mensajes de estado -->
+@if (buckets == null)
+{
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+}
+else if (buckets.Count == 0)
+{
+    <div class="alert alert-info" role="alert">
+        No S3 Buckets found in this account.
+    </div>
+}
+else
+{
+    <table class="table table-striped table-bordered">
+        <thead class="table-dark">
+            <tr>
+                <th>Bucket Name</th>
+                <th>Creation Date</th>
+                <th>Select</th>
+                <th>Upload File</th>
+                <th>Delete</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var bucket in buckets)
+            {
+                <tr>
+                    <td>@bucket.BucketName</td>
+                    <td>@bucket.CreationDate.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    <td>
+                        <button class="btn btn-primary" @onclick="() => SelectBucket(bucket.BucketName)">
+                            View Files
+                        </button>
+                    </td>
+                    <td>
+                        <InputFile OnChange="@(e => OnFileSelected(e, bucket.BucketName))" />
+                        <button class="btn btn-success" @onclick="() => UploadFile(bucket.BucketName)">
+                            Upload
+                        </button>
+                    </td>
+                    <td>
+                        <button class="btn btn-danger" @onclick="() => DeleteBucket(bucket.BucketName)">
+                            Delete Bucket
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (selectedBucket != null)
+    {
+        <h4>Files in '@selectedBucket'</h4>
+        @if (files == null)
+        {
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        }
+        else if (files.Count == 0)
+        {
+            <div class="alert alert-info" role="alert">
+                No files found in this bucket.
+            </div>
+        }
+        else
+        {
+            <table class="table table-striped table-bordered">
+                <thead class="table-dark">
+                    <tr>
+                        <th>File Name</th>
+                        <th>Size (Bytes)</th>
+                        <th>Last Modified</th>
+                        <th>View</th>
+                        <th>Download</th>
+                        <th>Delete</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var file in files)
+                    {
+                        <tr>
+                            <td>@file.Key</td>
+                            <td>@file.Size</td>
+                            <td>@file.LastModified.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <td>
+                                <button class="btn btn-info" @onclick="() => ViewFile(file.Key)">
+                                    View
+                                </button>
+                            </td>
+                            <td>
+                                <button class="btn btn-success" @onclick="() => DownloadFile(file.Key)">
+                                    Download
+                                </button>
+                            </td>
+                            <td>
+                                <button class="btn btn-danger" @onclick="() => DeleteFile(file.Key)">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    }
+
+    @if (!string.IsNullOrEmpty(deletionWarningMessage))
+    {
+        <div class="alert alert-warning" role="alert">
+            @deletionWarningMessage
+        </div>
+    }
+}
+
+@code {
+    private List<S3Bucket> buckets;
+    private List<S3Object> files;
+    private string selectedBucket;
+    private string deletionWarningMessage;
+    private IBrowserFile selectedFile;
+    private string statusMessage; // Variable para los mensajes de estado
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBuckets();
+    }
+
+    private async Task LoadBuckets()
+    {
+        try
+        {
+            var response = await s3Service.GetClient().ListBucketsAsync();
+            buckets = response.Buckets;
+            statusMessage = "S3 buckets loaded successfully."; // Mensaje de éxito
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error fetching buckets: {ex.Message}"; // Mensaje de error
+        }
+    }
+
+    private async Task SelectBucket(string bucketName)
+    {
+        selectedBucket = bucketName;
+        files = null; // Reinicia la lista de archivos antes de cargar nuevos datos
+        statusMessage = $"Selected bucket: {bucketName}"; // Actualizar mensaje cuando se selecciona un bucket
+
+        try
+        {
+            var request = new ListObjectsV2Request
+                {
+                    BucketName = selectedBucket
+                };
+            var response = await s3Service.GetClient().ListObjectsV2Async(request);
+            files = response.S3Objects;
+            statusMessage = $"Files in bucket '{bucketName}' loaded successfully."; // Mensaje de éxito
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error fetching files: {ex.Message}"; // Mensaje de error
+        }
+    }
+
+    private void OnFileSelected(InputFileChangeEventArgs e, string bucketName)
+    {
+        selectedFile = e.File;
+        selectedBucket = bucketName; // Asigna el bucket seleccionado para subir el archivo
+        statusMessage = $"Selected file: {selectedFile.Name} for bucket: {bucketName}"; // Actualizar mensaje cuando se selecciona un archivo
+    }
+
+    private async Task UploadFile(string bucketName)
+    {
+        if (selectedFile == null)
+        {
+            statusMessage = "No file selected for upload."; // Mensaje de error si no hay archivo seleccionado
+            return;
+        }
+
+        try
+        {
+            var stream = selectedFile.OpenReadStream();
+            var request = new PutObjectRequest
+                {
+                    BucketName = bucketName,
+                    Key = selectedFile.Name,
+                    InputStream = stream
+                };
+
+            await s3Service.GetClient().PutObjectAsync(request);
+            statusMessage = $"File '{selectedFile.Name}' uploaded to bucket '{bucketName}' successfully."; // Mensaje de éxito
+
+            // Recarga los archivos después de la subida
+            await SelectBucket(bucketName);
+        }
+        catch (AmazonS3Exception ex)
+        {
+            statusMessage = $"Error uploading file: {ex.Message}"; // Mensaje de error
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error uploading file: {ex.Message}"; // Mensaje de error
+        }
+    }
+
+    private async Task DeleteBucket(string bucketName)
+    {
+        deletionWarningMessage = string.Empty; // Limpia cualquier advertencia previa
+
+        try
+        {
+            var listResponse = await s3Service.GetClient().ListObjectsV2Async(new ListObjectsV2Request
+                {
+                    BucketName = bucketName
+                });
+
+            if (listResponse.S3Objects.Count > 0)
+            {
+                deletionWarningMessage = $"The bucket '{bucketName}' contains files. Please delete all files before deleting the bucket.";
+                return;
+            }
+
+            await s3Service.GetClient().DeleteBucketAsync(new DeleteBucketRequest
+                {
+                    BucketName = bucketName
+                });
+
+            statusMessage = $"Bucket '{bucketName}' deleted successfully."; // Mensaje de éxito
+
+            // Recargar la lista de buckets después de la eliminación
+            await LoadBuckets();
+        }
+        catch (AmazonS3Exception ex)
+        {
+            statusMessage = $"Error deleting bucket: {ex.Message}"; // Mensaje de error
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error deleting bucket: {ex.Message}"; // Mensaje de error
+        }
+    }
+
+    private async Task DeleteFile(string fileKey)
+    {
+        try
+        {
+            await s3Service.GetClient().DeleteObjectAsync(new DeleteObjectRequest
+                {
+                    BucketName = selectedBucket,
+                    Key = fileKey
+                });
+
+            statusMessage = $"File '{fileKey}' deleted successfully."; // Mensaje de éxito
+
+            // Recarga la lista de archivos después de la eliminación
+            await SelectBucket(selectedBucket);
+        }
+        catch (AmazonS3Exception ex)
+        {
+            statusMessage = $"Error deleting file: {ex.Message}"; // Mensaje de error
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error deleting file: {ex.Message}"; // Mensaje de error
+        }
+    }
+
+    private async Task ViewFile(string fileKey)
+    {
+        try
+        {
+            var request = new GetPreSignedUrlRequest
+                {
+                    BucketName = selectedBucket,
+                    Key = fileKey,
+                    Expires = DateTime.UtcNow.AddMinutes(10) // La URL expirará en 10 minutos
+                };
+
+            string url = s3Service.GetClient().GetPreSignedURL(request);
+
+            // Abre el archivo en una nueva pestaña del navegador usando JS interop
+            await jsRuntime.InvokeVoidAsync("open", url, "_blank");
+
+            statusMessage = $"File '{fileKey}' opened in a new tab."; // Mensaje de éxito
+        }
+        catch (AmazonS3Exception ex)
+        {
+            statusMessage = $"Error generating view link: {ex.Message}"; // Mensaje de error
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error generating view link: {ex.Message}"; // Mensaje de error
+        }
+    }
+
+    private async Task DownloadFile(string fileKey)
+    {
+        try
+        {
+            var request = new GetPreSignedUrlRequest
+                {
+                    BucketName = selectedBucket,
+                    Key = fileKey,
+                    Expires = DateTime.UtcNow.AddMinutes(10) // La URL expirará en 10 minutos
+                };
+
+            request.ResponseHeaderOverrides.ContentDisposition = $"attachment; filename=\"{fileKey}\"";
+
+            string url = s3Service.GetClient().GetPreSignedURL(request);
+
+            // Inicia la descarga del archivo en el navegador del usuario usando JS interop
+            await jsRuntime.InvokeVoidAsync("open", url, "_self");
+
+            statusMessage = $"File '{fileKey}' downloaded."; // Mensaje de éxito
+        }
+        catch (AmazonS3Exception ex)
+        {
+            statusMessage = $"Error generating download link: {ex.Message}"; // Mensaje de error
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error generating download link: {ex.Message}"; // Mensaje de error
+        }
+    }
+}
+```
+
+See this component features:
+
+![image](https://github.com/user-attachments/assets/2b5af686-da76-46d4-a8bf-5f159128037a)
 
