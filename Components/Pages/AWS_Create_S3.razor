@@ -1,0 +1,79 @@
+﻿@using Amazon.S3
+@using Amazon.S3.Model
+@using BlazorAWSSample.Services
+@using Microsoft.AspNetCore.Components.Forms
+
+@inject S3Service s3Service
+
+<!-- Form Group for Bucket Name Input -->
+<div class="container mt-4">
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <label for="bucketNameInput" class="form-label">Enter S3 Bucket Name:</label>
+            <input id="bucketNameInput" @bind="bucketName" placeholder="Bucket Name" class="form-control" />
+        </div>
+    </div>
+
+    <!-- Button to Create S3 Bucket with Reduced Width -->
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <button @onclick="CreateS3Bucket" class="btn btn-primary w-auto">Create S3 Bucket</button>
+        </div>
+    </div>
+
+    <!-- Display Success/Error Message -->
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="row">
+            <div class="col-md-6">
+                @if (errorMessage == "The bucket was successfully created")
+                {
+                    <div class="alert alert-success">@errorMessage</div>
+                }
+                else
+                {
+                    <div class="alert alert-danger">@errorMessage</div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private string bucketName = "";
+    private string errorMessage = "";
+
+    [Parameter]
+    public EventCallback<string> OnBucketNameCreated { get; set; }
+
+    private async Task CreateS3Bucket()
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(bucketName))
+            {
+                var request = new PutBucketRequest
+                    {
+                        BucketName = bucketName,
+                        UseClientRegion = true,
+                    };
+
+                var response = await s3Service.GetClient().PutBucketAsync(request);  // Llamar a PutBucketAsync desde el cliente
+                errorMessage = "The bucket was successfully created";
+                await OnBucketNameCreated.InvokeAsync(bucketName);
+            }
+            else
+            {
+                errorMessage = "Bucket name cannot be empty.";
+            }
+        }
+        catch (AmazonS3Exception ex)
+        {
+            errorMessage = $"Error creating S3 bucket: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An unexpected error occurred: {ex.Message}";
+        }
+    }
+}

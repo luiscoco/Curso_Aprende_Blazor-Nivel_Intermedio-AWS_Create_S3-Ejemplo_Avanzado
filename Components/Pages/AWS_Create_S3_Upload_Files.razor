@@ -1,0 +1,113 @@
+﻿@using Amazon.S3
+@using Amazon.S3.Model
+@using BlazorAWSSample.Services
+@using Microsoft.AspNetCore.Components.Forms
+
+@inject S3Service s3Service
+
+<div class="container mt-4">
+    <!-- AWS_Create_S3 component to create bucket -->
+    <AWS_Create_S3 OnBucketNameCreated="HandleBucketNameCreated"></AWS_Create_S3>
+
+    <!-- Spacer -->
+    <div class="my-4"></div>
+
+    <!-- File Upload Section -->
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <label for="fileInput" class="form-label">Upload a file:</label>
+            <InputFile OnChange="OnFileSelected" class="form-control" />
+        </div>
+    </div>
+
+    <!-- Display Selected File Name -->
+    @if (!string.IsNullOrEmpty(fileName))
+    {
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <p class="form-text">Selected file: @fileName</p>
+            </div>
+        </div>
+    }
+
+    <!-- Upload Button with Reduced Width -->
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <button @onclick="UploadFileToS3" class="btn btn-success w-auto" disabled="@(!fileSelected || string.IsNullOrEmpty(bucketName))">
+                Upload File to S3
+            </button>
+        </div>
+    </div>
+
+    <!-- Display Success/Error Message -->
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="row">
+            <div class="col-md-6">
+                @if (errorMessage == "The file was successfully uploaded")
+                {
+                    <div class="alert alert-success">@errorMessage</div>
+                }
+                else
+                {
+                    <div class="alert alert-danger">@errorMessage</div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private string bucketName = "";
+    private string errorMessage = "";
+    private IBrowserFile? selectedFile;
+    private string fileName = "";
+    private bool fileSelected = false;
+
+    private void HandleBucketNameCreated(string createdBucketName)
+    {
+        bucketName = createdBucketName;
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+        fileName = selectedFile.Name;
+        fileSelected = true;
+    }
+
+    private async Task UploadFileToS3()
+    {
+        try
+        {
+            if (selectedFile != null && !string.IsNullOrEmpty(bucketName))
+            {
+                var key = fileName;
+                using var stream = selectedFile.OpenReadStream();
+
+                var putRequest = new PutObjectRequest
+                    {
+                        BucketName = bucketName,
+                        Key = key,
+                        InputStream = stream,
+                        ContentType = selectedFile.ContentType
+                    };
+
+                var response = await s3Service.GetClient().PutObjectAsync(putRequest);
+                errorMessage = "The file was successfully uploaded";
+            }
+            else
+            {
+                errorMessage = "Please select a file and provide a bucket name.";
+            }
+        }
+        catch (AmazonS3Exception ex)
+        {
+            errorMessage = $"Error uploading file to S3: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An unexpected error occurred: {ex.Message}";
+        }
+    }
+}

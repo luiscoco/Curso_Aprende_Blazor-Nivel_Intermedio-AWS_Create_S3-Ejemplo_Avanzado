@@ -1,0 +1,290 @@
+﻿@page "/ListS3AndFilesBuckets"
+
+@using BlazorAWSSample.Services
+@using Amazon.S3.Model
+@using Amazon.S3
+@using Microsoft.JSInterop
+
+@inject S3Service s3Service
+@inject IJSRuntime jsRuntime
+
+<h3>S3 Buckets List</h3>
+
+@if (buckets == null)
+{
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+}
+else if (buckets.Count == 0)
+{
+    <div class="alert alert-info" role="alert">
+        No S3 Buckets found in this account.
+    </div>
+}
+else
+{
+    <table class="table table-striped table-bordered">
+        <thead class="table-dark">
+            <tr>
+                <th>Bucket Name</th>
+                <th>Creation Date</th>
+                <th>Select</th>
+                <th>Delete</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var bucket in buckets)
+            {
+                <tr>
+                    <td>@bucket.BucketName</td>
+                    <td>@bucket.CreationDate.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    <td>
+                        <button class="btn btn-primary" @onclick="() => SelectBucket(bucket.BucketName)">
+                            View Files
+                        </button>
+                    </td>
+                    <td>
+                        <button class="btn btn-danger" @onclick="() => DeleteBucket(bucket.BucketName)">
+                            Delete Bucket
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (selectedBucket != null)
+    {
+        <h4>Files in '@selectedBucket'</h4>
+        @if (files == null)
+        {
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        }
+        else if (files.Count == 0)
+        {
+            <div class="alert alert-info" role="alert">
+                No files found in this bucket.
+            </div>
+        }
+        else
+        {
+            <table class="table table-striped table-bordered">
+                <thead class="table-dark">
+                    <tr>
+                        <th>File Name</th>
+                        <th>Size (Bytes)</th>
+                        <th>Last Modified</th>
+                        <th>View</th>
+                        <th>Download</th>
+                        <th>Delete</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var file in files)
+                    {
+                        <tr>
+                            <td>@file.Key</td>
+                            <td>@file.Size</td>
+                            <td>@file.LastModified.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <td>
+                                <button class="btn btn-info" @onclick="() => ViewFile(file.Key)">
+                                    View
+                                </button>
+                            </td>
+                            <td>
+                                <button class="btn btn-success" @onclick="() => DownloadFile(file.Key)">
+                                    Download
+                                </button>
+                            </td>
+                            <td>
+                                <button class="btn btn-danger" @onclick="() => DeleteFile(file.Key)">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    }
+
+    @if (!string.IsNullOrEmpty(deletionWarningMessage))
+    {
+        <div class="alert alert-warning" role="alert">
+            @deletionWarningMessage
+        </div>
+    }
+}
+
+@code {
+    private List<S3Bucket> buckets;
+    private List<S3Object> files;
+    private string selectedBucket;
+    private string deletionWarningMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBuckets();
+    }
+
+    private async Task LoadBuckets()
+    {
+        try
+        {
+            // Get the list of buckets
+            var response = await s3Service.GetClient().ListBucketsAsync();
+            buckets = response.Buckets;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching buckets: {ex.Message}");
+        }
+    }
+
+    private async Task SelectBucket(string bucketName)
+    {
+        selectedBucket = bucketName;
+        files = null; // Reset files list before fetching new data
+
+        try
+        {
+            // Get the list of files (objects) in the selected bucket
+            var request = new ListObjectsV2Request
+                {
+                    BucketName = selectedBucket
+                };
+            var response = await s3Service.GetClient().ListObjectsV2Async(request);
+            files = response.S3Objects;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching files: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteBucket(string bucketName)
+    {
+        deletionWarningMessage = string.Empty; // Clear any previous warnings
+
+        try
+        {
+            // Check if the bucket contains any files
+            var listResponse = await s3Service.GetClient().ListObjectsV2Async(new ListObjectsV2Request
+                {
+                    BucketName = bucketName
+                });
+
+            if (listResponse.S3Objects.Count > 0)
+            {
+                // The bucket contains files, warn the user
+                deletionWarningMessage = $"The bucket '{bucketName}' contains files. Please delete all files before deleting the bucket.";
+                return;
+            }
+
+            // Delete the bucket if it is empty
+            await s3Service.GetClient().DeleteBucketAsync(new DeleteBucketRequest
+                {
+                    BucketName = bucketName
+                });
+
+            // Reload the bucket list after deletion
+            await LoadBuckets();
+        }
+        catch (AmazonS3Exception ex)
+        {
+            // Handle specific AWS errors
+            Console.WriteLine($"Error deleting bucket: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting bucket: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteFile(string fileKey)
+    {
+        try
+        {
+            // Delete the file (object) from the selected bucket
+            await s3Service.GetClient().DeleteObjectAsync(new DeleteObjectRequest
+                {
+                    BucketName = selectedBucket,
+                    Key = fileKey
+                });
+
+            // Reload the file list after deletion
+            await SelectBucket(selectedBucket);
+        }
+        catch (AmazonS3Exception ex)
+        {
+            // Handle specific AWS errors
+            Console.WriteLine($"Error deleting file: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting file: {ex.Message}");
+        }
+    }
+
+    private async Task ViewFile(string fileKey)
+    {
+        try
+        {
+            // Generate a pre-signed URL for viewing the file in the browser
+            var request = new GetPreSignedUrlRequest
+                {
+                    BucketName = selectedBucket,
+                    Key = fileKey,
+                    Expires = DateTime.UtcNow.AddMinutes(10) // URL will expire in 10 minutes
+                };
+
+            string url = s3Service.GetClient().GetPreSignedURL(request);
+
+            // Open the file in a new browser tab using JS interop
+            await jsRuntime.InvokeVoidAsync("open", url, "_blank");
+        }
+        catch (AmazonS3Exception ex)
+        {
+            // Handle specific AWS errors
+            Console.WriteLine($"Error generating view link: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error generating view link: {ex.Message}");
+        }
+    }
+
+    private async Task DownloadFile(string fileKey)
+    {
+        try
+        {
+            // Generate a pre-signed URL for downloading the file with `Content-Disposition: attachment`
+            var request = new GetPreSignedUrlRequest
+                {
+                    BucketName = selectedBucket,
+                    Key = fileKey,
+                    Expires = DateTime.UtcNow.AddMinutes(10) // URL will expire in 10 minutes
+                };
+
+            // Include the Content-Disposition header to force download
+            request.ResponseHeaderOverrides.ContentDisposition = $"attachment; filename=\"{fileKey}\"";
+
+            string url = s3Service.GetClient().GetPreSignedURL(request);
+
+            // Trigger file download in the user's browser using JS interop
+            await jsRuntime.InvokeVoidAsync("open", url, "_self");
+        }
+        catch (AmazonS3Exception ex)
+        {
+            // Handle specific AWS errors
+            Console.WriteLine($"Error generating download link: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error generating download link: {ex.Message}");
+        }
+    }
+}
