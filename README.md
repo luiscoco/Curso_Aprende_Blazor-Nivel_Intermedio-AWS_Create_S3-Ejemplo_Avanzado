@@ -196,6 +196,16 @@ This is the new component whole code:
 }
 ```
 
+If we run the application we see this component output:
+
+![image](https://github.com/user-attachments/assets/daeee6f3-7601-4a39-8855-306cac9002c0)
+
+We can verify in AWS console we created a new S3 bucket
+
+![image](https://github.com/user-attachments/assets/e63d3aae-2b2e-4396-ab73-2361049e3fec)
+
+![image](https://github.com/user-attachments/assets/c0636e3c-03e0-48f2-815c-c3787ba9226b)
+
 ## 5. Component for creating a new AWS S3 bucket and Uploading files (parent component AWS_Create_S3_Upload_Files.razor)
 
 We first invoke the child component to create a new S3 bucket
