@@ -56,7 +56,7 @@ We include a Singleton Service for interacting with AWS S3
 builder.Services.AddSingleton<S3Service>();
 ```
 
-This is the whole middleware (Program.cs) code:
+This is the whole middleware (**Program.cs**) code:
 
 ```csharp
 using BlazorAWSSample.Components;
@@ -114,7 +114,7 @@ var response = await s3Service.GetClient().PutBucketAsync(request);
 
 This is the new component whole code:
 
-```csharp
+```razor
 ﻿@using Amazon.S3
 @using Amazon.S3.Model
 @using BlazorAWSSample.Services
@@ -206,7 +206,7 @@ We first invoke the child component to create a new S3 bucket
 
 This is the parent component whole code:
 
-```csharp
+```razor
 ﻿@using Amazon.S3
 @using Amazon.S3.Model
 @using BlazorAWSSample.Services
