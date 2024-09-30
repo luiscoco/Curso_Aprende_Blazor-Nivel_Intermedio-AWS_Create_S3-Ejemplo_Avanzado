@@ -100,6 +100,14 @@ app.Run();
 
 ## 4. Component for creating a new AWS S3 bucket (child component AWS_Create_S3.razor)
 
+![image](https://github.com/user-attachments/assets/daeee6f3-7601-4a39-8855-306cac9002c0)
+
+We can verify in AWS console we created a new S3 bucket
+
+![image](https://github.com/user-attachments/assets/e63d3aae-2b2e-4396-ab73-2361049e3fec)
+
+![image](https://github.com/user-attachments/assets/c0636e3c-03e0-48f2-815c-c3787ba9226b)
+
 We inject the AWS S3 client service in the top of the new component
 
 ```
@@ -196,15 +204,54 @@ This is the new component whole code:
 }
 ```
 
-If we run the application we see this component output:
+This code is a Blazor web application component that allows users to create an Amazon S3 bucket via a web form
 
-![image](https://github.com/user-attachments/assets/daeee6f3-7601-4a39-8855-306cac9002c0)
+**Imports and Dependencies**:
 
-We can verify in AWS console we created a new S3 bucket
+The **@using Amazon.S3** and **@using Amazon.S3.Model** directives import Amazon S3 SDK namespaces for interacting with Amazon S3
 
-![image](https://github.com/user-attachments/assets/e63d3aae-2b2e-4396-ab73-2361049e3fec)
+The **@inject S3Service s3Service** injects a custom service (S3Service) that provides access to Amazon S3 operations
 
-![image](https://github.com/user-attachments/assets/c0636e3c-03e0-48f2-815c-c3787ba9226b)
+**@using Microsoft.AspNetCore.Components.Forms** provides support for form controls in Blazor
+
+**Form Layout**:
+
+The form is placed inside a Bootstrap container (```<div class="container mt-4">```) with input fields and buttons styled using Bootstrap classes
+
+The input field allows the user to enter an Amazon S3 bucket name (bucketName), which is bound to the Blazor component's bucketName field using @bind
+
+**Create S3 Bucket Button**:
+
+The "Create S3 Bucket" button triggers the **CreateS3Bucket** method when clicked using the @onclick directive
+
+**Handling Success/Error Messages**:
+
+If the bucket is created successfully, a success message is displayed
+
+If there's an error (e.g., the bucket name is empty or there’s a problem with the request), the corresponding error message is shown in an alert
+
+**Code Block (@code)**:
+
+**State Variables**:
+
+**bucketName**: Holds the user's input for the bucket name
+
+**errorMessage**: Stores any success or error message to be displayed to the user
+
+**Event Callback (OnBucketNameCreated)**: This can notify parent components when a bucket is created
+
+**CreateS3Bucket Method**:
+
+Validates if the bucket name is not empty
+
+Creates a **PutBucketRequest** object to send a request to Amazon S3 for creating the bucket
+
+Calls the **PutBucketAsync** method via the injected **s3Service** to execute the creation process asynchronously
+
+Handles exceptions from both the Amazon S3 service and general errors, setting an appropriate error message
+
+In summary, this Blazor component allows users to input an S3 bucket name, attempts to create the bucket in AWS S3 using the PutBucketAsync method, and displays success or error messages based on the outcome.
+
 
 ## 5. Component for creating a new AWS S3 bucket and Uploading files (parent component AWS_Create_S3_Upload_Files.razor)
 
