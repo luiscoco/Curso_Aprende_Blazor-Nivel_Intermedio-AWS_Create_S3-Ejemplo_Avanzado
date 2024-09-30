@@ -437,7 +437,9 @@ In summary, this component allows users to create an S3 bucket (via the AWS_Crea
 
 ## 6. Component for listing S3 buckets in AWS Account
 
-We use the S3Service and with the following code we list all the S3 buckets:
+![image](https://github.com/user-attachments/assets/cbfb5014-d731-4fdb-90dc-0d044d9ad8a0)
+
+We use the **S3Service** and with the following code we list all the S3 buckets:
 
 ```
 var response = await s3Service.GetClient().ListBucketsAsync();
@@ -507,9 +509,41 @@ else
 }
 ```
 
-We run the application and we navigate to this component to see all the S3 buckets in my AWS account
+This Blazor component displays a list of Amazon S3 buckets in a user's AWS account. Here's a breakdown of the functionality:
 
-![image](https://github.com/user-attachments/assets/cbfb5014-d731-4fdb-90dc-0d044d9ad8a0)
+**Imports and Dependencies**:
+
+The @using BlazorAWSSample.Services directive includes a custom service that handles S3 operations
+
+The @using Amazon.S3.Model directive imports the necessary AWS SDK models to work with S3, including the S3Bucket model
+
+The @inject S3Service s3Service injects the S3Service to perform S3-related operations like listing buckets
+
+**UI Structure**:
+
+**Loading Spinner**: If the list of buckets (buckets) is null (i.e., data hasn't loaded yet), a Bootstrap spinner is shown to indicate loading
+
+**No Buckets Message**: If the buckets list is empty, an alert informs the user that no S3 buckets were found
+
+**Bucket List Table**: If buckets are available, a table is rendered showing the name of each bucket and its creation date. The table is styled with Bootstrap classes for a striped and bordered layout
+
+**Code Block (@code)**:
+
+**State Variables**:
+
+**buckets**: A list of S3Bucket objects that store the fetched S3 buckets
+
+**OnInitializedAsync Method**:
+
+This is a Blazor lifecycle method that is called when the component is initialized.
+
+The method uses the s3Service to call ListBucketsAsync, which retrieves all the S3 buckets from the user's AWS account.
+
+The result (response.Buckets) is assigned to the buckets variable.
+
+If an exception occurs during the bucket fetch operation, it is caught, and an error message is logged to the console.
+
+Summary: This Blazor component lists all S3 buckets from the user's AWS account. While loading, it shows a spinner, and if no buckets are found, it displays an informational message. The list of buckets is presented in a table with the bucket name and creation date once available
 
 ## 7. Create a component for managing S3 buckets and files from Blazor Web App
 
