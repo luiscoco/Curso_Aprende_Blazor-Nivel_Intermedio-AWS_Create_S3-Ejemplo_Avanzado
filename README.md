@@ -10,7 +10,7 @@ Download and Install AWS CLI
 
 Create an Access Key and Secret Key
 
-Configure your AWS Account with AWS CLI
+Configure your AWS Account with AWS CLI (runnign the "aws configure" command)
 
 ## 2. Create a Blazor Web App with Visual Studio 2022 Community Edition
 
@@ -55,4 +55,50 @@ We include a Singleton Service for interacting with AWS S3
 // Register your S3 service
 builder.Services.AddSingleton<S3Service>();
 ```
+
+This is the whole middleware (Program.cs) code:
+
+```csharp
+using BlazorAWSSample.Components;
+using BlazorAWSSample.Services;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
+
+// Register your S3 service
+builder.Services.AddSingleton<S3Service>();
+
+// Enable detailed errors for development mode
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddServerSideBlazor()
+           .AddCircuitOptions(options => { options.DetailedErrors = true; });
+}
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+    app.UseHsts();
+}
+
+app.UseHttpsRedirection();
+
+app.UseAntiforgery();
+
+app.MapStaticAssets();
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
+
+app.Run();
+```
+
+## 4. 
+
+
 
