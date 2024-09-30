@@ -255,6 +255,8 @@ In summary, this Blazor component allows users to input an S3 bucket name, attem
 
 ## 5. Component for creating a new AWS S3 bucket and Uploading files (parent component AWS_Create_S3_Upload_Files.razor)
 
+![image](https://github.com/user-attachments/assets/afbf47b8-c914-4cb8-8551-90229a86fddb)
+
 We first invoke the child component to create a new S3 bucket
 
 ```
@@ -379,10 +381,59 @@ This is the parent component whole code:
 }
 ```
 
-If we run the application we can navigate to this component for creating S3 buckets and upload files
+This Blazor component enables users to upload a file to an Amazon S3 bucket
 
-![image](https://github.com/user-attachments/assets/afbf47b8-c914-4cb8-8551-90229a86fddb)
+It integrates with the AWS S3 service and provides user interaction via form inputs for selecting a file and uploading it
 
+**Imports and Dependencies**:
+
+The @using directives import necessary namespaces like Amazon.S3, Amazon.S3.Model, and custom services (BlazorAWSSample.Services) that handle interactions with S3
+
+The @inject S3Service s3Service injects the custom service to handle S3 operations
+
+**AWS_Create_S3 Component**:
+
+This component (```<AWS_Create_S3>```) allows the user to create an S3 bucket
+
+Once a bucket is created, the bucket name is passed to this component via the OnBucketNameCreated event, which triggers the HandleBucketNameCreated method to set the bucketName variable
+
+**File Upload Section**:
+
+File Input (```<InputFile>```): The user can select a file for upload. When a file is selected, the OnFileSelected method is triggered, which stores the file in the selectedFile variable and displays the file name
+
+**Upload Button**: The button to upload the file is enabled only when both a file is selected (fileSelected) and a bucket name is provided. When clicked, it triggers the UploadFileToS3 method
+
+**Success/Error Messages**:
+
+After attempting to upload the file, the component displays success or error messages based on the outcome of the upload
+
+**Code Block (@code)**:
+
+**State Variables**:
+
+**bucketName**: Stores the S3 bucket name
+
+**selectedFile**: Stores the file selected by the user
+
+**fileName**: Stores the name of the selected file
+
+**fileSelected**: Boolean flag to track if a file is selected
+
+**errorMessage**: Stores any error or success message to be displayed
+
+**HandleBucketNameCreated Method**: Receives the bucket name from the AWS_Create_S3 component and updates the bucketName
+
+**OnFileSelected Method**: Handles the file selection by capturing the file details and setting fileSelected to true
+
+**UploadFileToS3 Method**:
+
+Validates that both a file and bucket name are present.
+
+Creates a PutObjectRequest to upload the file to the specified S3 bucket using the PutObjectAsync method
+
+Handles any exceptions and updates the errorMessage with relevant information
+
+In summary, this component allows users to create an S3 bucket (via the AWS_Create_S3 component), select a file for upload, and then upload that file to the specified S3 bucket. It provides feedback on the success or failure of the upload operation
 
 ## 6. Component for listing S3 buckets in AWS Account
 
