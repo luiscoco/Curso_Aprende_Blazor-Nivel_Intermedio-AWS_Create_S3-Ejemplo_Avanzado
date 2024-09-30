@@ -332,5 +332,85 @@ This is the parent component whole code:
 }
 ```
 
-## 6. 
+If we run the application we can navigate to this component for creating S3 buckets and upload files
+
+![image](https://github.com/user-attachments/assets/afbf47b8-c914-4cb8-8551-90229a86fddb)
+
+
+## 6. Component for listing S3 buckets in AWS Account
+
+We use the S3Service and with the following code we list all the S3 buckets:
+
+```
+var response = await s3Service.GetClient().ListBucketsAsync();
+```
+
+This is the new component whole code:
+
+```razor
+@page "/ListS3Buckets"
+
+@using BlazorAWSSample.Services
+@using Amazon.S3.Model
+
+@inject S3Service s3Service
+
+<h3>S3 Buckets List</h3>
+
+@if (buckets == null)
+{
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+}
+else if (buckets.Count == 0)
+{
+    <div class="alert alert-info" role="alert">
+        No S3 Buckets found in this account.
+    </div>
+}
+else
+{
+    <table class="table table-striped table-bordered">
+        <thead class="table-dark">
+            <tr>
+                <th>Bucket Name</th>
+                <th>Creation Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var bucket in buckets)
+            {
+                <tr>
+                    <td>@bucket.BucketName</td>
+                    <td>@bucket.CreationDate.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<S3Bucket> buckets;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var response = await s3Service.GetClient().ListBucketsAsync();
+            buckets = response.Buckets;
+        }
+        catch (Exception ex)
+        {
+            // Log error or show a user-friendly message
+            Console.WriteLine($"Error fetching buckets: {ex.Message}");
+        }
+    }
+}
+```
+
+We run the application and we navigate to this component to see all the S3 buckets in my AWS account
+
+![image](https://github.com/user-attachments/assets/cbfb5014-d731-4fdb-90dc-0d044d9ad8a0)
+
 
