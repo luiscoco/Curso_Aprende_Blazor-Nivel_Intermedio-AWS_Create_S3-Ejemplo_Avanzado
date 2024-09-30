@@ -4,12 +4,14 @@
 @using Amazon.S3.Model
 @using Amazon.S3
 @using Microsoft.JSInterop
+@using Microsoft.AspNetCore.Components.Forms
 
 @inject S3Service s3Service
 @inject IJSRuntime jsRuntime
 
 <h3>S3 Buckets List</h3>
 
+<p>@statusMessage</p> <!-- Este párrafo mostrará los mensajes de estado -->
 @if (buckets == null)
 {
     <div class="spinner-border text-primary" role="status">
@@ -30,6 +32,7 @@ else
                 <th>Bucket Name</th>
                 <th>Creation Date</th>
                 <th>Select</th>
+                <th>Upload File</th>
                 <th>Delete</th>
             </tr>
         </thead>
@@ -42,6 +45,12 @@ else
                     <td>
                         <button class="btn btn-primary" @onclick="() => SelectBucket(bucket.BucketName)">
                             View Files
+                        </button>
+                    </td>
+                    <td>
+                        <InputFile OnChange="@(e => OnFileSelected(e, bucket.BucketName))" />
+                        <button class="btn btn-success" @onclick="() => UploadFile(bucket.BucketName)">
+                            Upload
                         </button>
                     </td>
                     <td>
@@ -124,6 +133,8 @@ else
     private List<S3Object> files;
     private string selectedBucket;
     private string deletionWarningMessage;
+    private IBrowserFile selectedFile;
+    private string statusMessage; // Variable para los mensajes de estado
 
     protected override async Task OnInitializedAsync()
     {
@@ -134,44 +145,85 @@ else
     {
         try
         {
-            // Get the list of buckets
             var response = await s3Service.GetClient().ListBucketsAsync();
             buckets = response.Buckets;
+            statusMessage = "S3 buckets loaded successfully."; // Mensaje de éxito
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error fetching buckets: {ex.Message}");
+            statusMessage = $"Error fetching buckets: {ex.Message}"; // Mensaje de error
         }
     }
 
     private async Task SelectBucket(string bucketName)
     {
         selectedBucket = bucketName;
-        files = null; // Reset files list before fetching new data
+        files = null; // Reinicia la lista de archivos antes de cargar nuevos datos
+        statusMessage = $"Selected bucket: {bucketName}"; // Actualizar mensaje cuando se selecciona un bucket
 
         try
         {
-            // Get the list of files (objects) in the selected bucket
             var request = new ListObjectsV2Request
                 {
                     BucketName = selectedBucket
                 };
             var response = await s3Service.GetClient().ListObjectsV2Async(request);
             files = response.S3Objects;
+            statusMessage = $"Files in bucket '{bucketName}' loaded successfully."; // Mensaje de éxito
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error fetching files: {ex.Message}");
+            statusMessage = $"Error fetching files: {ex.Message}"; // Mensaje de error
+        }
+    }
+
+    private void OnFileSelected(InputFileChangeEventArgs e, string bucketName)
+    {
+        selectedFile = e.File;
+        selectedBucket = bucketName; // Asigna el bucket seleccionado para subir el archivo
+        statusMessage = $"Selected file: {selectedFile.Name} for bucket: {bucketName}"; // Actualizar mensaje cuando se selecciona un archivo
+    }
+
+    private async Task UploadFile(string bucketName)
+    {
+        if (selectedFile == null)
+        {
+            statusMessage = "No file selected for upload."; // Mensaje de error si no hay archivo seleccionado
+            return;
+        }
+
+        try
+        {
+            var stream = selectedFile.OpenReadStream();
+            var request = new PutObjectRequest
+                {
+                    BucketName = bucketName,
+                    Key = selectedFile.Name,
+                    InputStream = stream
+                };
+
+            await s3Service.GetClient().PutObjectAsync(request);
+            statusMessage = $"File '{selectedFile.Name}' uploaded to bucket '{bucketName}' successfully."; // Mensaje de éxito
+
+            // Recarga los archivos después de la subida
+            await SelectBucket(bucketName);
+        }
+        catch (AmazonS3Exception ex)
+        {
+            statusMessage = $"Error uploading file: {ex.Message}"; // Mensaje de error
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error uploading file: {ex.Message}"; // Mensaje de error
         }
     }
 
     private async Task DeleteBucket(string bucketName)
     {
-        deletionWarningMessage = string.Empty; // Clear any previous warnings
+        deletionWarningMessage = string.Empty; // Limpia cualquier advertencia previa
 
         try
         {
-            // Check if the bucket contains any files
             var listResponse = await s3Service.GetClient().ListObjectsV2Async(new ListObjectsV2Request
                 {
                     BucketName = bucketName
@@ -179,28 +231,27 @@ else
 
             if (listResponse.S3Objects.Count > 0)
             {
-                // The bucket contains files, warn the user
                 deletionWarningMessage = $"The bucket '{bucketName}' contains files. Please delete all files before deleting the bucket.";
                 return;
             }
 
-            // Delete the bucket if it is empty
             await s3Service.GetClient().DeleteBucketAsync(new DeleteBucketRequest
                 {
                     BucketName = bucketName
                 });
 
-            // Reload the bucket list after deletion
+            statusMessage = $"Bucket '{bucketName}' deleted successfully."; // Mensaje de éxito
+
+            // Recargar la lista de buckets después de la eliminación
             await LoadBuckets();
         }
         catch (AmazonS3Exception ex)
         {
-            // Handle specific AWS errors
-            Console.WriteLine($"Error deleting bucket: {ex.Message}");
+            statusMessage = $"Error deleting bucket: {ex.Message}"; // Mensaje de error
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error deleting bucket: {ex.Message}");
+            statusMessage = $"Error deleting bucket: {ex.Message}"; // Mensaje de error
         }
     }
 
@@ -208,24 +259,24 @@ else
     {
         try
         {
-            // Delete the file (object) from the selected bucket
             await s3Service.GetClient().DeleteObjectAsync(new DeleteObjectRequest
                 {
                     BucketName = selectedBucket,
                     Key = fileKey
                 });
 
-            // Reload the file list after deletion
+            statusMessage = $"File '{fileKey}' deleted successfully."; // Mensaje de éxito
+
+            // Recarga la lista de archivos después de la eliminación
             await SelectBucket(selectedBucket);
         }
         catch (AmazonS3Exception ex)
         {
-            // Handle specific AWS errors
-            Console.WriteLine($"Error deleting file: {ex.Message}");
+            statusMessage = $"Error deleting file: {ex.Message}"; // Mensaje de error
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error deleting file: {ex.Message}");
+            statusMessage = $"Error deleting file: {ex.Message}"; // Mensaje de error
         }
     }
 
@@ -233,27 +284,27 @@ else
     {
         try
         {
-            // Generate a pre-signed URL for viewing the file in the browser
             var request = new GetPreSignedUrlRequest
                 {
                     BucketName = selectedBucket,
                     Key = fileKey,
-                    Expires = DateTime.UtcNow.AddMinutes(10) // URL will expire in 10 minutes
+                    Expires = DateTime.UtcNow.AddMinutes(10) // La URL expirará en 10 minutos
                 };
 
             string url = s3Service.GetClient().GetPreSignedURL(request);
 
-            // Open the file in a new browser tab using JS interop
+            // Abre el archivo en una nueva pestaña del navegador usando JS interop
             await jsRuntime.InvokeVoidAsync("open", url, "_blank");
+
+            statusMessage = $"File '{fileKey}' opened in a new tab."; // Mensaje de éxito
         }
         catch (AmazonS3Exception ex)
         {
-            // Handle specific AWS errors
-            Console.WriteLine($"Error generating view link: {ex.Message}");
+            statusMessage = $"Error generating view link: {ex.Message}"; // Mensaje de error
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error generating view link: {ex.Message}");
+            statusMessage = $"Error generating view link: {ex.Message}"; // Mensaje de error
         }
     }
 
@@ -261,30 +312,29 @@ else
     {
         try
         {
-            // Generate a pre-signed URL for downloading the file with `Content-Disposition: attachment`
             var request = new GetPreSignedUrlRequest
                 {
                     BucketName = selectedBucket,
                     Key = fileKey,
-                    Expires = DateTime.UtcNow.AddMinutes(10) // URL will expire in 10 minutes
+                    Expires = DateTime.UtcNow.AddMinutes(10) // La URL expirará en 10 minutos
                 };
 
-            // Include the Content-Disposition header to force download
             request.ResponseHeaderOverrides.ContentDisposition = $"attachment; filename=\"{fileKey}\"";
 
             string url = s3Service.GetClient().GetPreSignedURL(request);
 
-            // Trigger file download in the user's browser using JS interop
+            // Inicia la descarga del archivo en el navegador del usuario usando JS interop
             await jsRuntime.InvokeVoidAsync("open", url, "_self");
+
+            statusMessage = $"File '{fileKey}' downloaded."; // Mensaje de éxito
         }
         catch (AmazonS3Exception ex)
         {
-            // Handle specific AWS errors
-            Console.WriteLine($"Error generating download link: {ex.Message}");
+            statusMessage = $"Error generating download link: {ex.Message}"; // Mensaje de error
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error generating download link: {ex.Message}");
+            statusMessage = $"Error generating download link: {ex.Message}"; // Mensaje de error
         }
     }
 }
